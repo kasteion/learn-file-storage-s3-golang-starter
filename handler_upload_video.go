@@ -6,6 +6,7 @@ import (
 	"mime"
 	"net/http"
 	"os"
+	"path"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
@@ -78,19 +79,39 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	fileKey := getAssetPath(mediaType)
+	aspectRatio, err := getVideoAspectRatio(dest.Name())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error determining aspect ratio", err)
+		return
+	}
+	directory := ""
+	switch aspectRatio {
+	case "16:9":
+		directory = "landscape"
+	case "9:16":
+		directory = "portrait"
+	default:
+		directory = "other"
+	}
 
-	cfg.s3Client.PutObject(
-		r.Context(), 
+	key := getAssetPath(mediaType)
+	key = path.Join(directory, key)
+
+	_, err = cfg.s3Client.PutObject(
+		r.Context(),
 		&s3.PutObjectInput{
-			Bucket: &cfg.s3Bucket,
-			Key: &fileKey,
-			Body: dest,
+			Bucket:      &cfg.s3Bucket,
+			Key:         &key,
+			Body:        dest,
 			ContentType: &mediaType,
 		},
 	)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Unable to upload video to S3", err)
+		return
+	}
 
-	videoURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", cfg.s3Bucket, cfg.s3Region, fileKey)
+	videoURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", cfg.s3Bucket, cfg.s3Region, key)
 	video.VideoURL = &videoURL
 	if err := cfg.db.UpdateVideo(video); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Unable to update video", err)

@@ -85,7 +85,7 @@ func main() {
 		log.Fatal("Unable to load default AWS config")
 	}
 	s3Client := s3.NewFromConfig(awsCfg)
-	
+
 	cfg := apiConfig{
 		db:               db,
 		jwtSecret:        jwtSecret,
@@ -110,7 +110,7 @@ func main() {
 
 	assetsHandler := http.StripPrefix("/assets", http.FileServer(http.Dir(assetsRoot)))
 	// mux.Handle("/assets/", cacheMiddleware(assetsHandler))
-	mux.Handle("/assets/", noCacheMiddleware(assetsHandler) )
+	mux.Handle("/assets/", noCacheMiddleware(assetsHandler))
 
 	mux.HandleFunc("POST /api/login", cfg.handlerLogin)
 	mux.HandleFunc("POST /api/refresh", cfg.handlerRefresh)
